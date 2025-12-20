@@ -5,11 +5,17 @@ import { AppContext } from "../context/AppContext";
 import Alumnos from "../components/Alumnos";
 
 const Admin = () => {
-  const { user, logout } = useAuth();
+  const {
+    user,
+    logout,
+    registeredUsers,
+    loading: authLoading,
+    fetchUsers,
+    updateUser,
+    deleteUser,
+  } = useAuth();
   const { comentarios, eliminarComentario } = useContext(AppContext);
   const [activeSection, setActiveSection] = useState("alumnos");
-  const [alumnosData, setAlumnosData] = useState([]);
-  const [loading, setLoading] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [stats, setStats] = useState({
     total: 0,
@@ -17,11 +23,16 @@ const Admin = () => {
     inactivos: 0,
   });
 
+  // Estado para edición
+  const [editingUser, setEditingUser] = useState(null);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editFormData, setEditFormData] = useState({});
+
   const calcularEstadisticas = useCallback((alumnos) => {
     const alumnosFiltrados = alumnos.filter((a) => a.role === "alumno");
     const total = alumnosFiltrados.length;
     const activos = alumnosFiltrados.filter(
-      (a) => a.estado === "activo"
+      (a) => a.activo === true || a.estado === "activo"
     ).length;
 
     setStats({
@@ -32,48 +43,72 @@ const Admin = () => {
   }, []);
 
   const cargarDatosAlumnos = useCallback(async () => {
-    setLoading(true);
-    try {
-      const response = await fetch('/data/alumnos.json');
-      
-      if (!response.ok) {
-        throw new Error(`Error HTTP! estado: ${response.status}`);
+    await fetchUsers();
+  }, [fetchUsers]);
+
+  useEffect(() => {
+    if (registeredUsers.length > 0) {
+      calcularEstadisticas(registeredUsers);
+    }
+  }, [registeredUsers, calcularEstadisticas]);
+
+  // Cargar datos inicialmente
+  useEffect(() => {
+    fetchUsers();
+  }, [fetchUsers]);
+
+  // Recalcular estadísticas cuando cambian los usuarios
+  useEffect(() => {
+    if (registeredUsers.length > 0) {
+      calcularEstadisticas(registeredUsers);
+    }
+  }, [registeredUsers, calcularEstadisticas]);
+
+  // Handlers para CRUD
+  const handleEditClick = (userToEdit) => {
+    setEditingUser(userToEdit);
+    setEditFormData({ ...userToEdit });
+    setShowEditModal(true);
+  };
+
+  const handleDeleteClick = async (userToDelete) => {
+    if (
+      window.confirm(
+        `¿Estás seguro de que deseas eliminar a ${userToDelete.nombre} ${userToDelete.apellido}? Esta acción no se puede deshacer.`
+      )
+    ) {
+      const result = await deleteUser(userToDelete.id);
+      if (result.success) {
+        alert(result.message);
+      } else {
+        alert(result.message);
       }
-
-      const data = await response.json();
-
-      const alumnosProcesados = data.map((alumno) => ({
-        ...alumno,
-        role: alumno.role || "alumno",
-        estado: alumno.estado || "activo",
-      }));
-
-      setAlumnosData(alumnosProcesados);
-      calcularEstadisticas(alumnosProcesados);
-      
-    } catch (error) {
-      console.error("Error al cargar datos:", error);
-      alert(
-        `Error al cargar los datos. Verifica que el archivo existe en public/data/alumnos.json`
-      );
-    } finally {
-      setLoading(false);
     }
-  }, [calcularEstadisticas]);
+  };
 
-  useEffect(() => {
-    cargarDatosAlumnos();
-  }, [cargarDatosAlumnos]);
-
-  useEffect(() => {
-    if (activeSection === "alumnos" && alumnosData.length === 0) {
-      cargarDatosAlumnos();
+  const handleUpdateSubmit = async (e) => {
+    e.preventDefault();
+    const result = await updateUser(editingUser.id, editFormData);
+    if (result.success) {
+      setShowEditModal(false);
+      setEditingUser(null);
+      alert(result.message);
+    } else {
+      alert(result.message);
     }
-  }, [activeSection, alumnosData.length, cargarDatosAlumnos]);
+  };
+
+  const handleEditInputChange = (e) => {
+    const { name, value, type, checked } = e.target;
+    setEditFormData((prev) => ({
+      ...prev,
+      [name]: type === "checkbox" ? checked : value,
+    }));
+  };
 
   const exportarDatos = () => {
     try {
-      const alumnosExport = alumnosData.filter(
+      const alumnosExport = registeredUsers.filter(
         (alumno) => alumno.role === "alumno"
       );
 
@@ -88,12 +123,14 @@ const Admin = () => {
       const url = URL.createObjectURL(blob);
       const link = document.createElement("a");
       link.href = url;
-      link.download = `alumnos_exportados_${new Date().toISOString().split("T")[0]}.json`;
+      link.download = `alumnos_exportados_${
+        new Date().toISOString().split("T")[0]
+      }.json`;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
       URL.revokeObjectURL(url);
-      
+
       alert(`Se exportaron ${alumnosExport.length} registros correctamente.`);
     } catch (error) {
       console.error("Error al exportar datos:", error);
@@ -106,7 +143,9 @@ const Admin = () => {
       case "alumnos":
         return (
           <Alumnos
-            datosAlumnos={alumnosData.filter((a) => a.role === "alumno")}
+            datosAlumnos={registeredUsers.filter((a) => a.role === "alumno")}
+            onEdit={handleEditClick}
+            onDelete={handleDeleteClick}
           />
         );
       case "estadisticas":
@@ -156,7 +195,9 @@ const Admin = () => {
                       <ul className="list-group list-group-flush">
                         <li className="list-group-item d-flex justify-content-between">
                           <span>Contraseñas visibles:</span>
-                          <span className="badge bg-success">{stats.total}</span>
+                          <span className="badge bg-success">
+                            {stats.total}
+                          </span>
                         </li>
                         <li className="list-group-item d-flex justify-content-between">
                           <span>Usuarios únicos:</span>
@@ -173,7 +214,7 @@ const Admin = () => {
                       <button
                         className="btn btn-outline-primary w-100 mb-2"
                         onClick={exportarDatos}
-                        disabled={alumnosData.length === 0}
+                        disabled={registeredUsers.length === 0}
                       >
                         <i className="bi bi-download me-2"></i>
                         Exportar todos los datos
@@ -200,7 +241,7 @@ const Admin = () => {
                 <i className="bi bi-chat-quote-fill me-2"></i>
                 Moderación de Comentarios
               </h5>
-              
+
               {comentarios.length === 0 ? (
                 <div className="alert alert-info">
                   No hay comentarios para moderar.
@@ -220,27 +261,46 @@ const Admin = () => {
                     <tbody>
                       {comentarios.map((c) => (
                         <tr key={c.id}>
-                          <td><small>{c.fecha}</small></td>
+                          <td>
+                            <small>{c.fecha}</small>
+                          </td>
                           <td>
                             <div className="d-flex align-items-center">
-                              <div className="bg-secondary text-white rounded-circle d-flex justify-content-center align-items-center me-2" style={{width: 30, height: 30, fontSize: '0.8em'}}>
+                              <div
+                                className="bg-secondary text-white rounded-circle d-flex justify-content-center align-items-center me-2"
+                                style={{
+                                  width: 30,
+                                  height: 30,
+                                  fontSize: "0.8em",
+                                }}
+                              >
                                 {c.nombre.charAt(0).toUpperCase()}
                               </div>
                               <span className="fw-bold">{c.nombre}</span>
                             </div>
-                            <small className="text-muted d-block">{c.username}</small>
+                            <small className="text-muted d-block">
+                              {c.username}
+                            </small>
                           </td>
                           <td>
-                            <span className={`badge ${c.role === 'admin' ? 'bg-danger' : 'bg-primary'}`}>
-                              {c.role || 'alumno'}
+                            <span
+                              className={`badge ${
+                                c.role === "admin" ? "bg-danger" : "bg-primary"
+                              }`}
+                            >
+                              {c.role || "alumno"}
                             </span>
                           </td>
                           <td>{c.texto}</td>
                           <td>
-                            <button 
+                            <button
                               className="btn btn-sm btn-outline-danger"
                               onClick={() => {
-                                if(window.confirm('¿Seguro que deseas eliminar este comentario?')) {
+                                if (
+                                  window.confirm(
+                                    "¿Seguro que deseas eliminar este comentario?"
+                                  )
+                                ) {
                                   eliminarComentario(c.id);
                                 }
                               }}
@@ -273,13 +333,16 @@ const Admin = () => {
                   Advertencia de seguridad
                 </h6>
                 <p>
-                  Como administrador, tienes acceso completo a las credenciales de todos los alumnos.
-                  Esta información es altamente sensible. Asegúrate de:
+                  Como administrador, tienes acceso completo a las credenciales
+                  de todos los alumnos. Esta información es altamente sensible.
+                  Asegúrate de:
                 </p>
                 <ul>
                   <li>No compartir estas credenciales</li>
                   <li>Mantener la sesión cerrada cuando no la uses</li>
-                  <li>Usar una contraseña fuerte para tu cuenta de administrador</li>
+                  <li>
+                    Usar una contraseña fuerte para tu cuenta de administrador
+                  </li>
                 </ul>
               </div>
 
@@ -289,7 +352,7 @@ const Admin = () => {
                   <button
                     className="btn btn-outline-primary"
                     onClick={exportarDatos}
-                    disabled={alumnosData.length === 0}
+                    disabled={registeredUsers.length === 0}
                   >
                     <i className="bi bi-download me-2"></i>
                     Exportar Datos a JSON (incluye contraseñas)
@@ -328,7 +391,7 @@ const Admin = () => {
       default:
         return (
           <Alumnos
-            datosAlumnos={alumnosData.filter((a) => a.role === "alumno")}
+            datosAlumnos={registeredUsers.filter((a) => a.role === "alumno")}
           />
         );
     }
@@ -338,20 +401,23 @@ const Admin = () => {
     <div className="container-fluid py-4">
       <div className="row">
         {/* Sidebar */}
-        <div 
+        <div
           className={`col-md-3 col-lg-2 bg-dark text-white vh-100 position-fixed sidebar ${
             mobileMenuOpen ? "d-block" : "d-none d-md-block"
           }`}
-          style={{ zIndex: 1050, top: 0, left: 0, overflowY: 'auto' }}
+          style={{ zIndex: 1050, top: 0, left: 0, overflowY: "auto" }}
         >
           <div className="p-3">
-             {/* Botón cerrar menú móvil */}
-             <div className="d-flex justify-content-end d-md-none mb-2">
-                <button className="btn btn-sm btn-outline-light" onClick={() => setMobileMenuOpen(false)}>
-                  <i className="bi bi-x-lg"></i>
-                </button>
-             </div>
-             
+            {/* Botón cerrar menú móvil */}
+            <div className="d-flex justify-content-end d-md-none mb-2">
+              <button
+                className="btn btn-sm btn-outline-light"
+                onClick={() => setMobileMenuOpen(false)}
+              >
+                <i className="bi bi-x-lg"></i>
+              </button>
+            </div>
+
             <div className="text-center mb-4">
               <h4 className="text-danger mb-1">
                 <i className="bi bi-shield-lock me-2"></i>
@@ -456,7 +522,7 @@ const Admin = () => {
             {/* Mobile Header Toggle */}
             <div className="d-flex justify-content-between align-items-center d-md-none mb-4">
               <h4 className="text-danger mb-0">Admin Panel</h4>
-              <button 
+              <button
                 className="btn btn-outline-danger"
                 onClick={() => setMobileMenuOpen(true)}
               >
@@ -502,10 +568,10 @@ const Admin = () => {
                   <button
                     className="btn btn-outline-danger"
                     onClick={cargarDatosAlumnos}
-                    disabled={loading}
+                    disabled={authLoading}
                     title="Recargar datos"
                   >
-                    {loading ? (
+                    {authLoading ? (
                       <>
                         <span className="spinner-border spinner-border-sm me-2"></span>
                         Cargando...
@@ -521,7 +587,7 @@ const Admin = () => {
                   <button
                     className="btn btn-danger"
                     onClick={exportarDatos}
-                    disabled={alumnosData.length === 0}
+                    disabled={registeredUsers.length === 0}
                     title="Exportar con contraseñas"
                   >
                     <i className="bi bi-download me-2"></i>
@@ -532,7 +598,7 @@ const Admin = () => {
             </div>
 
             {/* Contenido principal */}
-            {loading && activeSection === "alumnos" ? (
+            {authLoading && activeSection === "alumnos" ? (
               <div className="text-center py-5">
                 <div
                   className="spinner-border text-danger"
@@ -543,7 +609,7 @@ const Admin = () => {
                 </div>
                 <p className="mt-3 fs-5">Cargando datos de alumnos...</p>
               </div>
-            ) : alumnosData.length === 0 && activeSection === "alumnos" ? (
+            ) : registeredUsers.length === 0 && activeSection === "alumnos" ? (
               <div className="text-center py-5">
                 <div className="alert alert-warning">
                   <h5>
@@ -551,7 +617,7 @@ const Admin = () => {
                     No hay datos de alumnos
                   </h5>
                   <p className="mb-0">
-                    Asegúrate de que el archivo alumnos.json existe en public/data/
+                    No se encontraron usuarios en la base de datos de Supabase.
                   </p>
                   <button
                     className="btn btn-sm btn-outline-danger mt-3"
@@ -582,6 +648,131 @@ const Admin = () => {
           </div>
         </div>
       </div>
+
+      {/* Modal de Edición */}
+      {showEditModal && (
+        <div
+          className="modal show d-block"
+          style={{ backgroundColor: "rgba(0,0,0,0.5)" }}
+        >
+          <div className="modal-dialog modal-lg">
+            <div className="modal-content border-0 shadow-lg">
+              <div className="modal-header bg-danger text-white">
+                <h5 className="modal-title">
+                  <i className="bi bi-pencil-square me-2"></i>
+                  Editar Alumno: {editingUser.nombre} {editingUser.apellido}
+                </h5>
+                <button
+                  type="button"
+                  className="btn-close btn-close-white"
+                  onClick={() => setShowEditModal(false)}
+                ></button>
+              </div>
+              <form onSubmit={handleUpdateSubmit}>
+                <div className="modal-body">
+                  <div className="row g-3">
+                    <div className="col-md-6">
+                      <label className="form-label fw-bold">Nombre</label>
+                      <input
+                        type="text"
+                        className="form-control"
+                        name="nombre"
+                        value={editFormData.nombre || ""}
+                        onChange={handleEditInputChange}
+                        required
+                      />
+                    </div>
+                    <div className="col-md-6">
+                      <label className="form-label fw-bold">Apellido</label>
+                      <input
+                        type="text"
+                        className="form-control"
+                        name="apellido"
+                        value={editFormData.apellido || ""}
+                        onChange={handleEditInputChange}
+                        required
+                      />
+                    </div>
+                    <div className="col-md-6">
+                      <label className="form-label fw-bold">Usuario</label>
+                      <input
+                        type="text"
+                        className="form-control"
+                        name="username"
+                        value={editFormData.username || ""}
+                        onChange={handleEditInputChange}
+                        required
+                      />
+                    </div>
+                    <div className="col-md-6">
+                      <label className="form-label fw-bold">Email</label>
+                      <input
+                        type="email"
+                        className="form-control"
+                        name="email"
+                        value={editFormData.email || ""}
+                        onChange={handleEditInputChange}
+                        required
+                      />
+                    </div>
+                    <div className="col-md-6">
+                      <label className="form-label fw-bold">DNI</label>
+                      <input
+                        type="text"
+                        className="form-control"
+                        name="dni"
+                        value={editFormData.dni || ""}
+                        onChange={handleEditInputChange}
+                        required
+                      />
+                    </div>
+                    <div className="col-md-6">
+                      <label className="form-label fw-bold">Teléfono</label>
+                      <input
+                        type="text"
+                        className="form-control"
+                        name="telefono"
+                        value={editFormData.telefono || ""}
+                        onChange={handleEditInputChange}
+                      />
+                    </div>
+                    <div className="col-md-12">
+                      <div className="form-check form-switch mt-2">
+                        <input
+                          className="form-check-input"
+                          type="checkbox"
+                          name="activo"
+                          id="activoSwitch"
+                          checked={editFormData.activo || false}
+                          onChange={handleEditInputChange}
+                        />
+                        <label
+                          className="form-check-label fw-bold"
+                          htmlFor="activoSwitch"
+                        >
+                          Usuario Activo
+                        </label>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div className="modal-footer bg-light">
+                  <button
+                    type="button"
+                    className="btn btn-secondary"
+                    onClick={() => setShowEditModal(false)}
+                  >
+                    Cancelar
+                  </button>
+                  <button type="submit" className="btn btn-danger px-4">
+                    Guardar Cambios
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

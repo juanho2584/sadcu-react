@@ -1,6 +1,6 @@
-import React from 'react';
+import React from "react";
 
-const Alumnos = ({ datosAlumnos = [] }) => {
+const Alumnos = ({ datosAlumnos = [], onEdit, onDelete }) => {
   if (datosAlumnos.length === 0) {
     return (
       <div className="alert alert-info">
@@ -13,26 +13,50 @@ const Alumnos = ({ datosAlumnos = [] }) => {
   return (
     <>
       <div className="alert alert-warning mb-4">
-        <h5><i className="bi bi-shield-lock me-2"></i>Panel de Administrador</h5>
+        <h5>
+          <i className="bi bi-shield-lock me-2"></i>Panel de Administrador
+        </h5>
         <p className="mb-0">
-          Información confidencial: Usuarios y contraseñas visibles solo para administradores autorizados.
+          Información confidencial: Usuarios y contraseñas visibles solo para
+          administradores autorizados.
         </p>
       </div>
 
       <div className="row">
         {datosAlumnos.map((alumno, idx) => (
           <div className="col-md-6 col-lg-4 mb-4" key={`${alumno.dni}-${idx}`}>
-            <div className="card h-100 shadow border-start border-4 border-danger">
+            <div className="card h-100 shadow border-start border-4 border-danger position-relative">
+              {/* Botones de acción flotantes/esquina */}
+              <div
+                className="position-absolute top-0 end-0 p-2 d-flex gap-1"
+                style={{ zIndex: 10 }}
+              >
+                <button
+                  className="btn btn-sm btn-light shadow-sm border"
+                  onClick={() => onEdit(alumno)}
+                  title="Editar alumno"
+                >
+                  <i className="bi bi-pencil-fill text-primary"></i>
+                </button>
+                <button
+                  className="btn btn-sm btn-light shadow-sm border"
+                  onClick={() => onDelete(alumno)}
+                  title="Eliminar alumno"
+                >
+                  <i className="bi bi-trash-fill text-danger"></i>
+                </button>
+              </div>
+
               <div className="card-header bg-dark text-white">
                 <div className="d-flex justify-content-between align-items-center">
-                  <h6 className="mb-0">
+                  <h6 className="mb-0 text-truncate me-5">
                     <i className="bi bi-person-badge me-2"></i>
                     {alumno.nombre} {alumno.apellido}
                   </h6>
                   <span className="badge bg-light text-dark">#{idx + 1}</span>
                 </div>
               </div>
-              
+
               <div className="card-body">
                 <div className="mb-3">
                   <div className="row g-2">
@@ -43,8 +67,14 @@ const Alumnos = ({ datosAlumnos = [] }) => {
                     <div className="col-6">
                       <small className="text-muted">Estado</small>
                       <p className="mb-0">
-                        <span className={`badge ${alumno.estado === 'activo' ? 'bg-success' : 'bg-warning'}`}>
-                          {alumno.estado || 'activo'}
+                        <span
+                          className={`badge ${
+                            alumno.estado === "activo"
+                              ? "bg-success"
+                              : "bg-warning"
+                          }`}
+                        >
+                          {alumno.estado || "activo"}
                         </span>
                       </p>
                     </div>
@@ -63,7 +93,7 @@ const Alumnos = ({ datosAlumnos = [] }) => {
                   <small className="text-muted">Teléfono</small>
                   <p className="mb-1">
                     <i className="bi bi-telephone me-1 text-success"></i>
-                    {alumno.telefono || 'No especificado'}
+                    {alumno.telefono || "No especificado"}
                   </p>
                 </div>
 
@@ -73,7 +103,7 @@ const Alumnos = ({ datosAlumnos = [] }) => {
                     <i className="bi bi-key me-2"></i>
                     Credenciales de acceso
                   </h6>
-                  
+
                   <div className="mb-2">
                     <small className="text-muted">Usuario</small>
                     <div className="input-group input-group-sm">
@@ -109,8 +139,11 @@ const Alumnos = ({ datosAlumnos = [] }) => {
                       <button
                         className="btn btn-outline-danger"
                         onClick={() => {
-                          const input = document.getElementById(`password-${idx}`);
-                          input.type = input.type === 'password' ? 'text' : 'password';
+                          const input = document.getElementById(
+                            `password-${idx}`
+                          );
+                          input.type =
+                            input.type === "password" ? "text" : "password";
                         }}
                         title="Mostrar/ocultar contraseña"
                       >
@@ -130,11 +163,11 @@ const Alumnos = ({ datosAlumnos = [] }) => {
                   </div>
                 </div>
               </div>
-              
+
               <div className="card-footer bg-light">
                 <small className="text-muted">
                   <i className="bi bi-calendar-event me-1"></i>
-                  Registrado: {alumno.fechaRegistro || 'No disponible'}
+                  Registrado: {alumno.fechaRegistro || "No disponible"}
                 </small>
               </div>
             </div>
@@ -152,13 +185,17 @@ const Alumnos = ({ datosAlumnos = [] }) => {
             </div>
             <div className="col-md-4">
               <h3 className="text-success">
-                {datosAlumnos.filter(a => a.estado === 'activo').length}
+                {datosAlumnos.filter((a) => a.estado === "activo").length}
               </h3>
               <p className="text-muted mb-0">Alumnos Activos</p>
             </div>
             <div className="col-md-4">
               <h3 className="text-danger">
-                {datosAlumnos.filter(a => a.password && a.password.length < 8).length}
+                {
+                  datosAlumnos.filter(
+                    (a) => a.password && a.password.length < 8
+                  ).length
+                }
               </h3>
               <p className="text-muted mb-0">Contraseñas débiles</p>
             </div>

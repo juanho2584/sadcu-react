@@ -1,5 +1,12 @@
 /* eslint-disable react-refresh/only-export-components */
-import React, { createContext, useContext, useState, useEffect } from "react";
+import React, {
+  createContext,
+  useContext,
+  useState,
+  useEffect,
+  useCallback,
+} from "react";
+import { supabase } from "../utils/supabase";
 
 // Crear contexto
 const AuthContext = createContext();
@@ -9,7 +16,7 @@ export const useAuth = () => useContext(AuthContext);
 
 // Proveedor global
 export const AuthProvider = ({ children }) => {
-  // Inicializar usuario desde localStorage para evitar flash de login
+  // Inicializar usuario desde localStorage para evitar flash de login (sesión persistente básica)
   const [user, setUser] = useState(() => {
     try {
       const savedUser = localStorage.getItem("user");
@@ -19,144 +26,176 @@ export const AuthProvider = ({ children }) => {
     }
   });
 
-  const [registeredUsers, setRegisteredUsers] = useState(() => {
-    // Usuarios iniciales
-    const initialUsers = [
-      {
-        username: "facu",
-        password: "Admin123+",
-        nombre: "Facundo",
-        apellido: "Caceres",
-        dni: "12898081",
-        email: "admin@sistema.com",
-        telefono: "",
-        role: "admin",
-        fechaRegistro: new Date().toISOString(),
-      },
-      {
-        username: "juancho",
-        password: "Admin124+",
-        nombre: "Juan",
-        apellido: "Pinto",
-        dni: "12898081",
-        email: "admin@sistema.com",
-        telefono: "",
-        role: "admin",
-        fechaRegistro: new Date().toISOString(),
-      },
-    ];
+  const [registeredUsers, setRegisteredUsers] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-    // Recuperar usuarios registrados de localStorage
-    const savedUsers = localStorage.getItem("registeredUsers");
-    return savedUsers ? JSON.parse(savedUsers) : initialUsers;
-  });
-
-  // Guardar usuarios en localStorage cuando cambien
+  // Cargar usuarios de Supabase al montar
   useEffect(() => {
-    localStorage.setItem("registeredUsers", JSON.stringify(registeredUsers));
-  }, [registeredUsers]);
+    fetchUsers();
+  }, []);
 
-  // Función de registro
-  const register = (userData) => {
-    // Verificar si el usuario ya existe
-    const userExists = registeredUsers.some(
-      (user) =>
-        user.username === userData.username || user.email === userData.email
-    );
+  const fetchUsers = useCallback(async () => {
+    setLoading(true);
+    try {
+      console.log("Fetching users from Supabase...");
+      const { data, error } = await supabase.from("usuarios").select("*");
 
-    if (userExists) {
+      if (error) throw error;
+      console.log(`Fetched ${data?.length || 0} users successfully.`);
+      setRegisteredUsers(data || []);
+    } catch (error) {
+      console.error("Error fetching users:", error.message);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  // Función de registro con Supabase
+  const register = useCallback(async (userData) => {
+    try {
+      // Verificar si el usuario ya existe
+      const { data: existingUser, error: checkError } = await supabase
+        .from("usuarios")
+        .select("username, email, dni")
+        .or(
+          `username.eq.${userData.username},email.eq.${userData.email},dni.eq.${userData.dni}`
+        )
+        .single();
+
+      if (existingUser) {
+        let message = "El usuario ya está registrado";
+        if (existingUser.email === userData.email)
+          message = "El email ya está registrado";
+        if (existingUser.dni === userData.dni)
+          message = "El DNI ya está registrado";
+        return { success: false, message };
+      }
+
+      // Crear nuevo usuario con rol de alumno
+      const newUser = {
+        ...userData,
+        role: "alumno",
+        fechaRegistro: new Date().toISOString(),
+        activo: true,
+      };
+
+      const { data, error } = await supabase
+        .from("usuarios")
+        .insert([newUser])
+        .select();
+
+      if (error) throw error;
+
+      // Actualizar lista local
+      setRegisteredUsers((prev) => [...prev, data[0]]);
+
+      return {
+        success: true,
+        message: "Registro exitoso. Ahora puedes iniciar sesión",
+      };
+    } catch (error) {
+      console.error("Error in register:", error.message);
       return {
         success: false,
-        message: "El usuario o email ya están registrados",
+        message: "Error al registrar: " + error.message,
       };
     }
+  }, []);
 
-    // Verificar si el DNI ya existe
-    const dniExists = registeredUsers.some((user) => user.dni === userData.dni);
+  // Función de login con Supabase
+  const login = useCallback(async (username, password) => {
+    try {
+      const { data: foundUser, error } = await supabase
+        .from("usuarios")
+        .select("*")
+        .eq("username", username)
+        .eq("password", password) // Nota: En producción usar auth.signIn y contraseñas hasheadas
+        .single();
 
-    if (dniExists) {
-      return { success: false, message: "El DNI ya está registrado" };
-    }
-
-    // Crear nuevo usuario con rol de alumno
-    const newUser = {
-      ...userData,
-      role: "alumno",
-      fechaRegistro: new Date().toISOString(),
-      activo: true,
-    };
-
-    // Agregar a la lista de usuarios
-    setRegisteredUsers((prev) => [...prev, newUser]);
-
-    return {
-      success: true,
-      message: "Registro exitoso. Ahora puedes iniciar sesión",
-    };
-  };
-
-  // Función de login (ahora asíncrona para buscar en JSON si es necesario)
-  const login = async (username, password) => {
-    // 1. Buscar en usuarios ya cargados en memoria (admins o alumnos previos)
-    let foundUser = registeredUsers.find(
-      (user) => user.username === username && user.password === password
-    );
-
-    // 2. Si no se encuentra, intentar buscar en alumnos.json
-    if (!foundUser) {
-      try {
-        console.log("DEBUG: Iniciando búsqueda en alumnos.json para:", username); 
-        const response = await fetch('/data/alumnos.json');
-        console.log("DEBUG: Fetch status:", response.status);
-        
-        if (response.ok) {
-          const alumnosJson = await response.json();
-          console.log("DEBUG: JSON cargado. Cantidad:", alumnosJson.length);
-          
-          foundUser = alumnosJson.find(
-            (user) => user.username === username && user.password === password
-          );
-          
-          if (foundUser) {
-             console.log("DEBUG: Usuario ENCONTRADO:", foundUser.username);
-             setRegisteredUsers((prev) => {
-               if (prev.some(u => u.username === foundUser.username)) return prev;
-               return [...prev, foundUser];
-             });
-          } else {
-             console.log("DEBUG: Usuario NO encontrado en JSON. Buscaba:", username, "con pass:", password);
-             // Log de nombres disponibles para ver si hay mismatch
-             console.log("DEBUG: Nombres disponibles:", alumnosJson.map(u => u.username));
-          }
-        } else {
-            console.error("DEBUG: Error en fetch:", response.statusText);
-        }
-      } catch (error) {
-        console.error("DEBUG: Excepción buscando en alumnos.json:", error);
+      if (error || !foundUser) {
+        return { success: false, message: "Usuario o contraseña incorrectos" };
       }
-    }
 
-    if (foundUser) {
+      if (!foundUser.activo) {
+        return { success: false, message: "Tu cuenta está desactivada" };
+      }
+
       // Crear objeto de sesión sin la contraseña
       const { password: _, ...userSession } = foundUser;
       setUser(userSession);
       localStorage.setItem("user", JSON.stringify(userSession));
       return { success: true, user: userSession };
+    } catch (error) {
+      console.error("Error in login:", error.message);
+      return { success: false, message: "Error al iniciar sesión" };
     }
+  }, []);
 
-    return { success: false, message: "Usuario o contraseña incorrectos" };
-  };
+  // Función para actualizar usuario
+  const updateUser = useCallback(
+    async (id, userData) => {
+      try {
+        const { data, error } = await supabase
+          .from("usuarios")
+          .update(userData)
+          .eq("id", id)
+          .select();
+
+        if (error) throw error;
+
+        const updatedUser = data[0];
+
+        // Actualizar lista local
+        setRegisteredUsers((prev) =>
+          prev.map((u) => (u.id === id ? updatedUser : u))
+        );
+
+        // Si el usuario actualizado es el actual, actualizar el estado y localStorage
+        if (user && user.id === id) {
+          const { password: _, ...userSession } = updatedUser;
+          setUser(userSession);
+          localStorage.setItem("user", JSON.stringify(userSession));
+        }
+
+        return { success: true, message: "Usuario actualizado correctamente" };
+      } catch (error) {
+        console.error("Error updating user:", error.message);
+        return {
+          success: false,
+          message: "Error al actualizar: " + error.message,
+        };
+      }
+    },
+    [user]
+  );
+
+  // Función para eliminar usuario
+  const deleteUser = useCallback(async (id) => {
+    try {
+      const { error } = await supabase.from("usuarios").delete().eq("id", id);
+
+      if (error) throw error;
+
+      // Actualizar lista local
+      setRegisteredUsers((prev) => prev.filter((u) => u.id !== id));
+
+      return { success: true, message: "Usuario eliminado correctamente" };
+    } catch (error) {
+      console.error("Error deleting user:", error.message);
+      return { success: false, message: "Error al eliminar: " + error.message };
+    }
+  }, []);
 
   // Logout
-  const logout = () => {
+  const logout = useCallback(() => {
     setUser(null);
     localStorage.removeItem("user");
-  };
+  }, []);
 
   // Obtener todos los alumnos (para el panel admin)
-  const getAlumnos = () => {
-    return registeredUsers.filter((user) => user.role === "alumno");
-  };
+  const getAlumnos = useCallback(() => {
+    return registeredUsers.filter((u) => u.role === "alumno");
+  }, [registeredUsers]);
 
   return (
     <AuthContext.Provider
@@ -167,6 +206,10 @@ export const AuthProvider = ({ children }) => {
         logout,
         getAlumnos,
         registeredUsers,
+        loading,
+        fetchUsers,
+        updateUser,
+        deleteUser,
       }}
     >
       {children}

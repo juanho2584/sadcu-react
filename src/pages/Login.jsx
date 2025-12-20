@@ -5,18 +5,19 @@ import { useAuth } from "../context/AuthContext";
 // Expresiones regulares para validaciones
 const validations = {
   username: /^[a-zA-Z0-9_]{4,20}$/,
-  password: /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/,
+  password:
+    /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/,
   nombre: /^[a-zA-ZÁÉÍÓÚáéíóúñÑ\s]{2,50}$/,
   apellido: /^[a-zA-ZÁÉÍÓÚáéíóúñÑ\s]{2,50}$/,
   dni: /^\d{7,8}$/,
   email: /^[^\s@]+@[^\s@]+\.[^\s@]+$/,
-  telefono: /^(\d{10,15})?$/
+  telefono: /^(\d{10,15})?$/,
 };
 
 const Login = () => {
   const { login, register } = useAuth();
   const navigate = useNavigate();
-  
+
   // Estados del formulario
   const [isRegister, setIsRegister] = useState(false);
   const [formData, setFormData] = useState({
@@ -26,15 +27,15 @@ const Login = () => {
     apellido: "",
     dni: "",
     email: "",
-    telefono: ""
+    telefono: "",
   });
   const [confirmPassword, setConfirmPassword] = useState("");
   const [errors, setErrors] = useState({});
   const [touched, setTouched] = useState({});
   const [validFields, setValidFields] = useState({});
   const [loading, setLoading] = useState(false);
-  const [submitMessage, setSubmitMessage] = useState({ type: '', text: '' });
-  
+  const [submitMessage, setSubmitMessage] = useState({ type: "", text: "" });
+
   // Referencias para animaciones
   const formRef = useRef(null);
 
@@ -47,7 +48,8 @@ const Login = () => {
       if (!formData.username.trim()) {
         newErrors.username = "El usuario es requerido";
       } else if (!validations.username.test(formData.username)) {
-        newErrors.username = "Usuario inválido (4-20 caracteres, solo letras, números y _)";
+        newErrors.username =
+          "Usuario inválido (4-20 caracteres, solo letras, números y _)";
       } else {
         newValidFields.username = true;
       }
@@ -57,7 +59,8 @@ const Login = () => {
       if (!formData.password.trim()) {
         newErrors.password = "La contraseña es requerida";
       } else if (isRegister && !validations.password.test(formData.password)) {
-        newErrors.password = "Mínimo 8 caracteres, 1 mayúscula, 1 minúscula, 1 número y 1 caracter especial";
+        newErrors.password =
+          "Mínimo 8 caracteres, 1 mayúscula, 1 minúscula, 1 número y 1 caracter especial";
       } else {
         newValidFields.password = true;
       }
@@ -136,67 +139,84 @@ const Login = () => {
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
-    
+
     // Limpieza de datos según el campo
     let cleanedValue = value;
-    
+
     switch (name) {
-      case 'dni':
-        cleanedValue = value.replace(/\D/g, '').slice(0, 8);
+      case "dni":
+        cleanedValue = value.replace(/\D/g, "").slice(0, 8);
         break;
-      case 'telefono':
-        cleanedValue = value.replace(/\D/g, '').slice(0, 15);
+      case "telefono":
+        cleanedValue = value.replace(/\D/g, "").slice(0, 15);
         break;
-      case 'username':
-        cleanedValue = value.toLowerCase().replace(/[^a-z0-9_]/g, '');
+      case "username":
+        cleanedValue = value.toLowerCase().replace(/[^a-z0-9_]/g, "");
         break;
-      case 'email':
+      case "email":
         cleanedValue = value.toLowerCase();
         break;
-      case 'nombre':
-      case 'apellido':
-        cleanedValue = value.replace(/[^a-zA-ZÁÉÍÓÚáéíóúñÑ\s]/g, '');
+      case "nombre":
+      case "apellido":
+        cleanedValue = value.replace(/[^a-zA-ZÁÉÍÓÚáéíóúñÑ\s]/g, "");
         break;
     }
-    
-    setFormData(prev => ({
+
+    setFormData((prev) => ({
       ...prev,
-      [name]: cleanedValue
+      [name]: cleanedValue,
     }));
-    
+
     // Marcar como tocado cuando se empieza a escribir
     if (!touched[name]) {
-      setTouched(prev => ({ ...prev, [name]: true }));
+      setTouched((prev) => ({ ...prev, [name]: true }));
     }
   };
 
   const handleBlur = (field) => {
-    setTouched(prev => ({ ...prev, [field]: true }));
+    setTouched((prev) => ({ ...prev, [field]: true }));
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
-    setSubmitMessage({ type: '', text: '' });
-    
+    setSubmitMessage({ type: "", text: "" });
+
     // Marcar todos los campos como tocados
-    const allFields = isRegister 
-      ? ['username', 'password', 'nombre', 'apellido', 'dni', 'email', 'telefono', 'confirmPassword']
-      : ['username', 'password'];
-    
-    const newTouched = allFields.reduce((acc, field) => ({ ...acc, [field]: true }), {});
+    const allFields = isRegister
+      ? [
+          "username",
+          "password",
+          "nombre",
+          "apellido",
+          "dni",
+          "email",
+          "telefono",
+          "confirmPassword",
+        ]
+      : ["username", "password"];
+
+    const newTouched = allFields.reduce(
+      (acc, field) => ({ ...acc, [field]: true }),
+      {}
+    );
     setTouched(newTouched);
-    
+
     // Esperar un ciclo para que se actualice el estado
     setTimeout(() => {
       if (!validateForm()) {
         setLoading(false);
-        setSubmitMessage({ type: 'error', text: 'Por favor, corrige los errores en el formulario' });
-        
+        setSubmitMessage({
+          type: "error",
+          text: "Por favor, corrige los errores en el formulario",
+        });
+
         // Enfocar el primer campo con error
         const firstErrorField = Object.keys(errors)[0];
         if (firstErrorField && formRef.current) {
-          const errorInput = formRef.current.querySelector(`[name="${firstErrorField}"]`);
+          const errorInput = formRef.current.querySelector(
+            `[name="${firstErrorField}"]`
+          );
           if (errorInput) errorInput.focus();
         }
         return;
@@ -210,9 +230,9 @@ const Login = () => {
     try {
       if (isRegister) {
         // Proceso de registro
-        const result = register(currentFormData);
+        const result = await register(currentFormData);
         if (result.success) {
-          setSubmitMessage({ type: 'success', text: result.message });
+          setSubmitMessage({ type: "success", text: result.message });
           // Limpiar formulario
           setFormData({
             username: "",
@@ -221,7 +241,7 @@ const Login = () => {
             apellido: "",
             dni: "",
             email: "",
-            telefono: ""
+            telefono: "",
           });
           setConfirmPassword("");
           setTouched({});
@@ -229,33 +249,39 @@ const Login = () => {
           // Cambiar a modo login después de 2 segundos
           setTimeout(() => {
             setIsRegister(false);
-            setSubmitMessage({ type: '', text: '' });
+            setSubmitMessage({ type: "", text: "" });
           }, 2000);
         } else {
-          setSubmitMessage({ type: 'error', text: result.message });
+          setSubmitMessage({ type: "error", text: result.message });
         }
       } else {
         // Proceso de login
-        const result = await login(currentFormData.username, currentFormData.password);
+        const result = await login(
+          currentFormData.username,
+          currentFormData.password
+        );
         if (result.success) {
-          setSubmitMessage({ type: 'success', text: 'Inicio de sesión exitoso. Redirigiendo...' });
-          
+          setSubmitMessage({
+            type: "success",
+            text: "Inicio de sesión exitoso. Redirigiendo...",
+          });
+
           // Redirigir según el rol
           setTimeout(() => {
-            if (result.user.role === 'admin') {
+            if (result.user.role === "admin") {
               navigate("/admin");
             } else {
               navigate("/alumno");
             }
           }, 1500);
         } else {
-          setSubmitMessage({ type: 'error', text: result.message });
+          setSubmitMessage({ type: "error", text: result.message });
         }
       }
     } catch {
-      setSubmitMessage({ 
-        type: 'error', 
-        text: 'Ocurrió un error inesperado. Por favor, intenta nuevamente' 
+      setSubmitMessage({
+        type: "error",
+        text: "Ocurrió un error inesperado. Por favor, intenta nuevamente",
       });
     } finally {
       setLoading(false);
@@ -264,7 +290,7 @@ const Login = () => {
 
   const toggleMode = () => {
     setIsRegister(!isRegister);
-    setSubmitMessage({ type: '', text: '' });
+    setSubmitMessage({ type: "", text: "" });
     setErrors({});
     setTouched({});
     setValidFields({});
@@ -274,7 +300,7 @@ const Login = () => {
   // Función para renderizar el ícono de validación
   const renderValidationIcon = (fieldName) => {
     if (!touched[fieldName]) return null;
-    
+
     if (errors[fieldName]) {
       return (
         <div className="input-group-append">
@@ -284,7 +310,7 @@ const Login = () => {
         </div>
       );
     }
-    
+
     if (validFields[fieldName]) {
       return (
         <div className="input-group-append">
@@ -294,14 +320,14 @@ const Login = () => {
         </div>
       );
     }
-    
+
     return null;
   };
 
   // Función para obtener clase del campo
   const getInputClassName = (field) => {
     let className = "form-control ";
-    
+
     if (touched[field]) {
       if (errors[field]) {
         className += "is-invalid ";
@@ -309,43 +335,52 @@ const Login = () => {
         className += "is-valid ";
       }
     }
-    
+
     return className.trim();
   };
 
   // Función para renderizar mensaje de ayuda
   const renderHelpText = (field) => {
     if (!touched[field] || validFields[field]) return null;
-    
+
     const helpTexts = {
       username: "4-20 caracteres, solo letras, números y _",
-      password: "Mín. 8 caracteres con mayúscula, minúscula, número y símbolo (@$!%*?&)",
+      password:
+        "Mín. 8 caracteres con mayúscula, minúscula, número y símbolo (@$!%*?&)",
       nombre: "Solo letras y espacios (2-50 caracteres)",
       apellido: "Solo letras y espacios (2-50 caracteres)",
       dni: "7 u 8 dígitos",
       email: "Formato: usuario@dominio.com",
       telefono: "10-15 dígitos (opcional)",
-      confirmPassword: "Debe coincidir con la contraseña"
+      confirmPassword: "Debe coincidir con la contraseña",
     };
-    
+
     if (helpTexts[field]) {
       return <small className="form-text text-muted">{helpTexts[field]}</small>;
     }
-    
+
     return null;
   };
 
   return (
     <div className="d-flex align-items-center justify-content-center min-vh-100 bg-gradient">
-      <div className="card p-4 shadow-lg border-0" style={{ width: "450px", maxWidth: "95%" }} ref={formRef}>
+      <div
+        className="card p-4 shadow-lg border-0"
+        style={{ width: "450px", maxWidth: "95%" }}
+        ref={formRef}
+      >
         <div className="text-center mb-4">
           <h2 className="text-danger fw-bold">
-            <i className={`bi bi-${isRegister ? 'person-plus' : 'box-arrow-in-right'} me-2`}></i>
+            <i
+              className={`bi bi-${
+                isRegister ? "person-plus" : "box-arrow-in-right"
+              } me-2`}
+            ></i>
             {isRegister ? "Crear Cuenta" : "Iniciar Sesión"}
           </h2>
           <p className="text-muted">
-            {isRegister 
-              ? "Completa el formulario para registrarte" 
+            {isRegister
+              ? "Completa el formulario para registrarte"
               : "Ingresa tus credenciales para acceder"}
           </p>
         </div>
@@ -360,10 +395,12 @@ const Login = () => {
               </small>
             </div>
             <div className="progress" style={{ height: "6px" }}>
-              <div 
-                className="progress-bar bg-success" 
-                role="progressbar" 
-                style={{ width: `${(Object.keys(validFields).length / 7) * 100}%` }}
+              <div
+                className="progress-bar bg-success"
+                role="progressbar"
+                style={{
+                  width: `${(Object.keys(validFields).length / 7) * 100}%`,
+                }}
                 aria-valuenow={Object.keys(validFields).length}
                 aria-valuemin="0"
                 aria-valuemax="7"
@@ -374,10 +411,24 @@ const Login = () => {
 
         {/* Mensajes de éxito/error */}
         {submitMessage.text && (
-          <div className={`alert alert-${submitMessage.type === 'success' ? 'success' : 'danger'} alert-dismissible fade show`}>
-            <i className={`bi bi-${submitMessage.type === 'success' ? 'check-circle' : 'exclamation-triangle'} me-2`}></i>
+          <div
+            className={`alert alert-${
+              submitMessage.type === "success" ? "success" : "danger"
+            } alert-dismissible fade show`}
+          >
+            <i
+              className={`bi bi-${
+                submitMessage.type === "success"
+                  ? "check-circle"
+                  : "exclamation-triangle"
+              } me-2`}
+            ></i>
             {submitMessage.text}
-            <button type="button" className="btn-close" onClick={() => setSubmitMessage({ type: '', text: '' })}></button>
+            <button
+              type="button"
+              className="btn-close"
+              onClick={() => setSubmitMessage({ type: "", text: "" })}
+            ></button>
           </div>
         )}
 
@@ -391,21 +442,21 @@ const Login = () => {
             <div className="input-group">
               <input
                 type="text"
-                className={getInputClassName('username')}
+                className={getInputClassName("username")}
                 name="username"
                 value={formData.username}
                 onChange={handleInputChange}
-                onBlur={() => handleBlur('username')}
+                onBlur={() => handleBlur("username")}
                 placeholder="ej: juan.perez"
                 disabled={loading}
                 required
               />
-              {renderValidationIcon('username')}
+              {renderValidationIcon("username")}
             </div>
             {touched.username && errors.username ? (
               <div className="invalid-feedback d-block">{errors.username}</div>
             ) : (
-              renderHelpText('username')
+              renderHelpText("username")
             )}
           </div>
 
@@ -418,41 +469,56 @@ const Login = () => {
             <div className="input-group">
               <input
                 type="password"
-                className={getInputClassName('password')}
+                className={getInputClassName("password")}
                 name="password"
                 value={formData.password}
                 onChange={handleInputChange}
-                onBlur={() => handleBlur('password')}
+                onBlur={() => handleBlur("password")}
                 placeholder={isRegister ? "Contraseña segura" : "Tu contraseña"}
                 disabled={loading}
                 required
               />
-              {renderValidationIcon('password')}
+              {renderValidationIcon("password")}
             </div>
             {touched.password && errors.password ? (
               <div className="invalid-feedback d-block">{errors.password}</div>
             ) : (
-              renderHelpText('password')
+              renderHelpText("password")
             )}
-            
+
             {/* Indicador de fortaleza de contraseña (solo registro) */}
             {isRegister && touched.password && (
               <div className="mt-2">
                 <small className="d-block mb-1">Fortaleza de contraseña:</small>
                 <div className="password-strength">
-                  {['Mínimo 8 caracteres', 'Mayúscula y minúscula', 'Al menos un número', 'Carácter especial'].map((req, idx) => {
+                  {[
+                    "Mínimo 8 caracteres",
+                    "Mayúscula y minúscula",
+                    "Al menos un número",
+                    "Carácter especial",
+                  ].map((req, idx) => {
                     const regexChecks = [
                       /.{8,}/,
                       /(?=.*[a-z])(?=.*[A-Z])/,
                       /\d/,
-                      /[@$!%*?&]/
+                      /[@$!%*?&]/,
                     ];
                     const isValid = regexChecks[idx].test(formData.password);
-                    
+
                     return (
                       <div key={idx} className="d-flex align-items-center mb-1">
-                        <i className={`bi ${isValid ? 'bi-check-circle-fill text-success' : 'bi-circle text-muted'} me-2`}></i>
-                        <small className={isValid ? 'text-success' : 'text-muted'}>{req}</small>
+                        <i
+                          className={`bi ${
+                            isValid
+                              ? "bi-check-circle-fill text-success"
+                              : "bi-circle text-muted"
+                          } me-2`}
+                        ></i>
+                        <small
+                          className={isValid ? "text-success" : "text-muted"}
+                        >
+                          {req}
+                        </small>
                       </div>
                     );
                   })}
@@ -472,23 +538,25 @@ const Login = () => {
                     Nombre *
                   </label>
                   <div className="input-group">
-                  <input
+                    <input
                       type="text"
-                      className={getInputClassName('nombre')}
+                      className={getInputClassName("nombre")}
                       name="nombre"
                       value={formData.nombre}
                       onChange={handleInputChange}
-                      onBlur={() => handleBlur('nombre')}
+                      onBlur={() => handleBlur("nombre")}
                       placeholder="Juan"
                       disabled={loading}
                       required
                     />
-                    {renderValidationIcon('nombre')}
+                    {renderValidationIcon("nombre")}
                   </div>
                   {touched.nombre && errors.nombre ? (
-                    <div className="invalid-feedback d-block">{errors.nombre}</div>
+                    <div className="invalid-feedback d-block">
+                      {errors.nombre}
+                    </div>
                   ) : (
-                    renderHelpText('nombre')
+                    renderHelpText("nombre")
                   )}
                 </div>
                 <div className="col-md-6 mb-3">
@@ -499,21 +567,23 @@ const Login = () => {
                   <div className="input-group">
                     <input
                       type="text"
-                      className={getInputClassName('apellido')}
+                      className={getInputClassName("apellido")}
                       name="apellido"
                       value={formData.apellido}
                       onChange={handleInputChange}
-                      onBlur={() => handleBlur('apellido')}
+                      onBlur={() => handleBlur("apellido")}
                       placeholder="Pérez"
                       disabled={loading}
                       required
                     />
-                    {renderValidationIcon('apellido')}
+                    {renderValidationIcon("apellido")}
                   </div>
                   {touched.apellido && errors.apellido ? (
-                    <div className="invalid-feedback d-block">{errors.apellido}</div>
+                    <div className="invalid-feedback d-block">
+                      {errors.apellido}
+                    </div>
                   ) : (
-                    renderHelpText('apellido')
+                    renderHelpText("apellido")
                   )}
                 </div>
               </div>
@@ -527,22 +597,22 @@ const Login = () => {
                 <div className="input-group">
                   <input
                     type="text"
-                    className={getInputClassName('dni')}
+                    className={getInputClassName("dni")}
                     name="dni"
                     value={formData.dni}
                     onChange={handleInputChange}
-                    onBlur={() => handleBlur('dni')}
+                    onBlur={() => handleBlur("dni")}
                     placeholder="12345678"
                     maxLength="8"
                     disabled={loading}
                     required
                   />
-                  {renderValidationIcon('dni')}
+                  {renderValidationIcon("dni")}
                 </div>
                 {touched.dni && errors.dni ? (
                   <div className="invalid-feedback d-block">{errors.dni}</div>
                 ) : (
-                  renderHelpText('dni')
+                  renderHelpText("dni")
                 )}
               </div>
 
@@ -555,21 +625,21 @@ const Login = () => {
                 <div className="input-group">
                   <input
                     type="email"
-                    className={getInputClassName('email')}
+                    className={getInputClassName("email")}
                     name="email"
                     value={formData.email}
                     onChange={handleInputChange}
-                    onBlur={() => handleBlur('email')}
+                    onBlur={() => handleBlur("email")}
                     placeholder="juan@email.com"
                     disabled={loading}
                     required
                   />
-                  {renderValidationIcon('email')}
+                  {renderValidationIcon("email")}
                 </div>
                 {touched.email && errors.email ? (
                   <div className="invalid-feedback d-block">{errors.email}</div>
                 ) : (
-                  renderHelpText('email')
+                  renderHelpText("email")
                 )}
               </div>
 
@@ -582,20 +652,22 @@ const Login = () => {
                 <div className="input-group">
                   <input
                     type="text"
-                    className={getInputClassName('telefono')}
+                    className={getInputClassName("telefono")}
                     name="telefono"
                     value={formData.telefono}
                     onChange={handleInputChange}
-                    onBlur={() => handleBlur('telefono')}
+                    onBlur={() => handleBlur("telefono")}
                     placeholder="1122334455"
                     disabled={loading}
                   />
-                  {renderValidationIcon('telefono')}
+                  {renderValidationIcon("telefono")}
                 </div>
                 {touched.telefono && errors.telefono ? (
-                  <div className="invalid-feedback d-block">{errors.telefono}</div>
+                  <div className="invalid-feedback d-block">
+                    {errors.telefono}
+                  </div>
                 ) : (
-                  renderHelpText('telefono')
+                  renderHelpText("telefono")
                 )}
               </div>
 
@@ -608,45 +680,57 @@ const Login = () => {
                 <div className="input-group">
                   <input
                     type="password"
-                    className={`form-control ${touched.confirmPassword && errors.confirmPassword ? 'is-invalid' : ''} ${touched.confirmPassword && !errors.confirmPassword ? 'is-valid' : ''}`}
+                    className={`form-control ${
+                      touched.confirmPassword && errors.confirmPassword
+                        ? "is-invalid"
+                        : ""
+                    } ${
+                      touched.confirmPassword && !errors.confirmPassword
+                        ? "is-valid"
+                        : ""
+                    }`}
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
-                    onBlur={() => handleBlur('confirmPassword')}
+                    onBlur={() => handleBlur("confirmPassword")}
                     placeholder="Repite tu contraseña"
                     disabled={loading}
                     required
                   />
-                  {renderValidationIcon('confirmPassword')}
+                  {renderValidationIcon("confirmPassword")}
                 </div>
                 {touched.confirmPassword && errors.confirmPassword ? (
-                  <div className="invalid-feedback d-block">{errors.confirmPassword}</div>
-                ) : (
-                  renderHelpText('confirmPassword')
-                )}
-                
-                {/* Indicador de coincidencia */}
-                {touched.confirmPassword && formData.password && confirmPassword && (
-                  <div className="mt-1">
-                    {formData.password === confirmPassword ? (
-                      <small className="text-success">
-                        <i className="bi bi-check-circle-fill me-1"></i>
-                        Las contraseñas coinciden
-                      </small>
-                    ) : (
-                      <small className="text-danger">
-                        <i className="bi bi-x-circle-fill me-1"></i>
-                        Las contraseñas no coinciden
-                      </small>
-                    )}
+                  <div className="invalid-feedback d-block">
+                    {errors.confirmPassword}
                   </div>
+                ) : (
+                  renderHelpText("confirmPassword")
                 )}
+
+                {/* Indicador de coincidencia */}
+                {touched.confirmPassword &&
+                  formData.password &&
+                  confirmPassword && (
+                    <div className="mt-1">
+                      {formData.password === confirmPassword ? (
+                        <small className="text-success">
+                          <i className="bi bi-check-circle-fill me-1"></i>
+                          Las contraseñas coinciden
+                        </small>
+                      ) : (
+                        <small className="text-danger">
+                          <i className="bi bi-x-circle-fill me-1"></i>
+                          Las contraseñas no coinciden
+                        </small>
+                      )}
+                    </div>
+                  )}
               </div>
             </>
           )}
 
           {/* Botón de envío */}
-          <button 
-            type="submit" 
+          <button
+            type="submit"
             className="btn btn-danger w-100 py-2 mb-3 fw-semibold"
             disabled={loading}
           >
@@ -657,7 +741,11 @@ const Login = () => {
               </>
             ) : (
               <>
-                <i className={`bi bi-${isRegister ? 'person-plus' : 'box-arrow-in-right'} me-2`}></i>
+                <i
+                  className={`bi bi-${
+                    isRegister ? "person-plus" : "box-arrow-in-right"
+                  } me-2`}
+                ></i>
                 {isRegister ? "Registrarse" : "Iniciar Sesión"}
               </>
             )}
@@ -671,9 +759,13 @@ const Login = () => {
               onClick={toggleMode}
               disabled={loading}
             >
-              <i className={`bi bi-arrow-${isRegister ? 'left' : 'right'}-circle me-1`}></i>
-              {isRegister 
-                ? "¿Ya tienes cuenta? Inicia sesión" 
+              <i
+                className={`bi bi-arrow-${
+                  isRegister ? "left" : "right"
+                }-circle me-1`}
+              ></i>
+              {isRegister
+                ? "¿Ya tienes cuenta? Inicia sesión"
                 : "¿No tienes cuenta? Regístrate"}
             </button>
           </div>
@@ -689,12 +781,12 @@ const Login = () => {
           </div>
           <div className="mt-2">
             <small className="text-muted">
-              {isRegister 
-                ? "✓ Tus datos están protegidos" 
+              {isRegister
+                ? "✓ Tus datos están protegidos"
                 : "🔒 Acceso seguro con validación en tiempo real"}
             </small>
           </div>
-          
+
           {/* Indicadores de validación */}
           <div className="mt-3 d-flex justify-content-around small">
             <div className="text-center">

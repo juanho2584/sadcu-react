@@ -1,42 +1,170 @@
+:root {
+  --inst-red: #dc3545;
+  --inst-dark: #121212;
+  --inst-dark-alt: #1e1e1e;
+  --inst-gray: #1a1a1a;
+  --inst-white: #ffffff;
+  --inst-text-muted: #e0e0e0; /* Aún más claro para legibilidad extrema */
+}
+
 #root {
-  max-width: 1280px;
+  width: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+.dashboard-container {
+  display: flex;
+  min-height: 100vh;
+  background-color: var(--inst-dark) !important;
+  color: var(--inst-white);
+}
+
+.sidebar-student {
+  width: 240px;
+  min-width: 240px;
+  height: 100vh;
+  background-color: var(--inst-dark);
+  border-right: 1px solid rgba(255, 255, 255, 0.1);
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  z-index: 1100;
+  box-shadow: 10px 0 30px rgba(0, 0, 0, 0.5);
+  position: sticky;
+  top: 0;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto; /* Permitir scroll interno */
+  scrollbar-width: thin; /* Firefox */
+  scrollbar-color: rgba(255, 255, 255, 0.1) transparent;
+}
+
+/* Scrollbar styling para Chrome/Edge */
+.sidebar-student::-webkit-scrollbar {
+  width: 4px;
+}
+.sidebar-student::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+}
+
+.sidebar-student .nav-link {
+  color: rgba(255, 255, 255, 0.85); /* Mas brillo */
+  padding: 0.8rem 1.2rem;
+  border-radius: 8px;
+  margin: 0.2rem 0;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  transition: all 0.2s;
+}
+
+.sidebar-student .nav-link:hover {
+  background-color: rgba(255, 255, 255, 0.05);
+  color: var(--inst-white);
+  transform: translateX(5px);
+}
+
+.sidebar-student .nav-link.active {
+  background-color: var(--inst-red);
+  color: var(--inst-white);
+  box-shadow: 0 4px 12px rgba(220, 53, 69, 0.3);
+}
+
+.main-content {
+  flex: 1;
+  padding: 2.5rem;
+  overflow-y: auto;
+  max-width: 1400px;
   margin: 0 auto;
-  padding: 2rem;
+  width: 100%;
+}
+
+.card-dashboard {
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 12px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+  margin-bottom: 1.5rem;
+  transition: transform 0.2s, box-shadow 0.2s;
+  background-color: var(--inst-dark-alt);
+  color: var(--inst-white);
+}
+
+.card-dashboard:hover {
+  transform: translateY(-5px);
+}
+
+.stats-card {
+  border-left: 5px solid var(--inst-red);
+}
+
+.logo-container {
+  padding: 2rem 1rem;
   text-align: center;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
 }
 
-.logo {
-  height: 6em;
-  padding: 1.5em;
-  will-change: filter;
-  transition: filter 300ms;
-}
-.logo:hover {
-  filter: drop-shadow(0 0 2em #646cffaa);
-}
-.logo.react:hover {
-  filter: drop-shadow(0 0 2em #61dafbaa);
-}
-
-@keyframes logo-spin {
-  from {
-    transform: rotate(0deg);
+@media (max-width: 991.98px) {
+  .sidebar-student {
+    position: fixed;
+    left: -241px;
+    top: 0;
+    bottom: 0;
+    z-index: 2100;
+    box-shadow: 15px 0 40px rgba(0, 0, 0, 0.7);
   }
-  to {
-    transform: rotate(360deg);
+
+  .sidebar-student.active {
+    left: 0;
+  }
+
+  .main-content {
+    padding: 1.25rem;
+    width: 100%;
+  }
+
+  .sidebar-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.75);
+    backdrop-filter: blur(4px);
+    z-index: 2000;
+    opacity: 0;
+    visibility: hidden;
+    transition: all 0.3s ease;
+  }
+
+  .sidebar-overlay.show {
+    opacity: 1;
+    visibility: visible;
   }
 }
 
-@media (prefers-reduced-motion: no-preference) {
-  a:nth-of-type(2) .logo {
-    animation: logo-spin infinite 20s linear;
-  }
+.btn-primary {
+  background-color: var(--inst-red);
+  border-color: var(--inst-red);
 }
 
-.card {
-  padding: 2em;
+.btn-primary:hover,
+.btn-primary:focus {
+  background-color: #bd2130;
+  border-color: #b21f2d;
 }
 
-.read-the-docs {
-  color: #888;
+.text-primary {
+  color: var(--inst-red) !important;
+}
+
+.bg-primary {
+  background-color: var(--inst-red) !important;
+}
+
+.breadcrumb-item + .breadcrumb-item::before {
+  content: "›" !important;
+  font-size: 1.2rem;
+  line-height: 1;
+  vertical-align: middle;
+  color: rgba(255, 255, 255, 0.3) !important;
 }
