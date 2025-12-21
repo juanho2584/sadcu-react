@@ -10,9 +10,11 @@ const Admin = () => {
     logout,
     registeredUsers,
     loading: authLoading,
+    register,
     fetchUsers,
     updateUser,
     deleteUser,
+    checkAvailability,
   } = useAuth();
   const { comentarios, eliminarComentario } = useContext(AppContext);
   const [activeSection, setActiveSection] = useState("alumnos");
@@ -23,17 +25,39 @@ const Admin = () => {
     inactivos: 0,
   });
 
-  // Estado para edición
+  // Estado para edición y creación
   const [editingUser, setEditingUser] = useState(null);
   const [showEditModal, setShowEditModal] = useState(false);
+  const [showCreateModal, setShowCreateModal] = useState(false);
   const [editFormData, setEditFormData] = useState({});
+  const [createFormData, setCreateFormData] = useState({
+    nombre: "",
+    apellido: "",
+    username: "",
+    email: "",
+    password: "",
+    dni: "",
+    telefono: "",
+    role: "alumno",
+  });
+
+  // Estado para validación en tiempo real
+  const [availability, setAvailability] = useState({
+    username: null, // null (no verificado), true (disponible), false (ocupado)
+    email: null,
+    dni: null,
+  });
+  const [validating, setValidating] = useState({
+    username: false,
+    email: false,
+    dni: false,
+  });
+  const [creating, setCreating] = useState(false);
 
   const calcularEstadisticas = useCallback((alumnos) => {
     const alumnosFiltrados = alumnos.filter((a) => a.role === "alumno");
     const total = alumnosFiltrados.length;
-    const activos = alumnosFiltrados.filter(
-      (a) => a.activo === true || a.estado === "activo"
-    ).length;
+    const activos = alumnosFiltrados.filter((a) => a.activo !== false).length;
 
     setStats({
       total,
@@ -56,6 +80,38 @@ const Admin = () => {
   useEffect(() => {
     fetchUsers();
   }, [fetchUsers]);
+
+  // Validación en tiempo real con debounce
+  useEffect(() => {
+    if (!showCreateModal) return;
+
+    const fieldsToCheck = ["username", "email", "dni"];
+    const timeouts = {};
+
+    fieldsToCheck.forEach((field) => {
+      const value = createFormData[field];
+      if (value && value.length >= 3) {
+        setValidating((prev) => ({ ...prev, [field]: true }));
+        timeouts[field] = setTimeout(async () => {
+          const isAvailable = await checkAvailability(field, value);
+          setAvailability((prev) => ({ ...prev, [field]: isAvailable }));
+          setValidating((prev) => ({ ...prev, [field]: false }));
+        }, 600);
+      } else {
+        setAvailability((prev) => ({ ...prev, [field]: null }));
+        setValidating((prev) => ({ ...prev, [field]: false }));
+      }
+    });
+
+    return () => {
+      Object.values(timeouts).forEach((t) => clearTimeout(t));
+    };
+  }, [
+    createFormData.username,
+    createFormData.email,
+    createFormData.dni,
+    showCreateModal,
+  ]);
 
   // Recalcular estadísticas cuando cambian los usuarios
   useEffect(() => {
@@ -86,9 +142,53 @@ const Admin = () => {
     }
   };
 
+  const handleCreateSubmit = async (e) => {
+    e.preventDefault();
+    setCreating(true);
+    try {
+      const result = await register(createFormData);
+      if (result.success) {
+        setShowCreateModal(false);
+        setCreateFormData({
+          nombre: "",
+          apellido: "",
+          username: "",
+          email: "",
+          password: "",
+          dni: "",
+          telefono: "",
+          role: "alumno",
+        });
+        alert(result.message);
+      } else {
+        alert(result.message);
+      }
+    } catch (error) {
+      console.error("Error in handleCreateSubmit:", error);
+      alert("Error inesperado al crear el alumno");
+    } finally {
+      setCreating(false);
+    }
+  };
+
   const handleUpdateSubmit = async (e) => {
     e.preventDefault();
-    const result = await updateUser(editingUser.id, editFormData);
+
+    // Sanitizar datos para Supabase (eliminar campos que no deben actualizarse directamente o son virtuales)
+    const { id, created_at, ...dataToUpdate } = editFormData;
+
+    // Asegurarse de que no estamos enviando el objeto entero si tiene campos que rompen Supabase
+    const cleanData = {
+      nombre: dataToUpdate.nombre,
+      apellido: dataToUpdate.apellido,
+      username: dataToUpdate.username,
+      email: dataToUpdate.email,
+      dni: dataToUpdate.dni,
+      telefono: dataToUpdate.telefono,
+      activo: dataToUpdate.activo,
+    };
+
+    const result = await updateUser(editingUser.id, cleanData);
     if (result.success) {
       setShowEditModal(false);
       setEditingUser(null);
@@ -106,6 +206,48 @@ const Admin = () => {
     }));
   };
 
+  const handleCreateInputChange = (e) => {
+    const { name, value } = e.target;
+    setCreateFormData((prev) => ({
+      ...prev,
+      [name]: value,
+    }));
+    // Resetear disponibilidad al cambiar el valor
+    if (availability[name] !== undefined) {
+      setAvailability((prev) => ({ ...prev, [name]: null }));
+    }
+  };
+
+  const renderValidation = (field) => {
+    if (validating[field]) {
+      return (
+        <small className="text-info d-block mt-1">
+          <span
+            className="spinner-border spinner-border-sm me-1"
+            role="status"
+            aria-hidden="true"
+          ></span>
+          Verificando...
+        </small>
+      );
+    }
+    if (availability[field] === true) {
+      return (
+        <small className="text-success d-block mt-1">
+          <i className="bi bi-check-circle-fill me-1"></i> Disponible
+        </small>
+      );
+    }
+    if (availability[field] === false) {
+      return (
+        <small className="text-danger d-block mt-1">
+          <i className="bi bi-exclamation-triangle-fill me-1"></i> Ya registrado
+          en la base
+        </small>
+      );
+    }
+    return null;
+  };
   const exportarDatos = () => {
     try {
       const alumnosExport = registeredUsers.filter(
@@ -426,17 +568,21 @@ const Admin = () => {
               <small className="text-light">Acceso completo</small>
             </div>
 
-            <div className="user-info mb-4 p-3 bg-dark rounded">
+            <div className="user-info mb-4 p-3 bg-dark border border-secondary border-opacity-25 rounded shadow-sm">
               <div className="d-flex align-items-center">
-                <div className="bg-danger rounded-circle p-2 me-3">
-                  <i className="bi bi-person-fill text-white"></i>
+                <div className="bg-danger rounded-circle p-2 me-3 shadow-sm">
+                  <i className="bi bi-person-fill text-white fs-5"></i>
                 </div>
                 <div>
-                  <p className="mb-0 text-light fw-semibold">{user.username}</p>
-                  <small className="text-muted">Administrador</small>
-                  <small className="d-block text-warning">
-                    <i className="bi bi-key me-1"></i>
-                    Ver contraseñas
+                  <p className="mb-0 text-white fw-bold">
+                    {user.nombre || user.username}
+                  </p>
+                  <small className="text-white opacity-75 d-block">
+                    Administrador
+                  </small>
+                  <small className="d-block text-warning fw-medium mt-1">
+                    <i className="bi bi-key-fill me-1"></i>
+                    Claves visibles
                   </small>
                 </div>
               </div>
@@ -538,12 +684,21 @@ const Admin = () => {
                     <>
                       <i className="bi bi-people-fill me-2"></i>
                       Gestión de Alumnos
+                      <span className="badge bg-danger bg-opacity-10 text-danger ms-2 fs-6">
+                        {stats.total}
+                      </span>
                     </>
                   )}
                   {activeSection === "estadisticas" && (
                     <>
                       <i className="bi bi-bar-chart-fill me-2"></i>
                       Estadísticas
+                    </>
+                  )}
+                  {activeSection === "comentarios" && (
+                    <>
+                      <i className="bi bi-chat-quote-fill me-2"></i>
+                      Comentarios
                     </>
                   )}
                   {activeSection === "configuracion" && (
@@ -558,6 +713,8 @@ const Admin = () => {
                     "Visualización completa de datos, incluyendo credenciales"}
                   {activeSection === "estadisticas" &&
                     "Estadísticas y análisis de los alumnos"}
+                  {activeSection === "comentarios" &&
+                    "Gestión de comentarios y feedback de usuarios"}
                   {activeSection === "configuracion" &&
                     "Configuración del sistema y privilegios de administrador"}
                 </p>
@@ -566,7 +723,16 @@ const Admin = () => {
               {activeSection === "alumnos" && (
                 <div className="d-flex gap-2">
                   <button
-                    className="btn btn-outline-danger"
+                    className="btn btn-danger shadow-sm px-3"
+                    onClick={() => setShowCreateModal(true)}
+                    title="Registrar nuevo alumno"
+                  >
+                    <i className="bi bi-person-plus-fill me-2"></i>
+                    Nuevo Alumno
+                  </button>
+
+                  <button
+                    className="btn btn-outline-danger shadow-sm px-3"
                     onClick={cargarDatosAlumnos}
                     disabled={authLoading}
                     title="Recargar datos"
@@ -585,7 +751,7 @@ const Admin = () => {
                   </button>
 
                   <button
-                    className="btn btn-danger"
+                    className="btn btn-outline-secondary shadow-sm px-3"
                     onClick={exportarDatos}
                     disabled={registeredUsers.length === 0}
                     title="Exportar con contraseñas"
@@ -766,6 +932,209 @@ const Admin = () => {
                   </button>
                   <button type="submit" className="btn btn-danger px-4">
                     Guardar Cambios
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Modal de Creación de Alumno */}
+      {showCreateModal && (
+        <div
+          className="modal show d-block"
+          style={{
+            backgroundColor: "rgba(0,0,0,0.6)",
+            backdropFilter: "blur(4px)",
+          }}
+        >
+          <div className="modal-dialog modal-lg modal-dialog-centered">
+            <div className="modal-content border-0 shadow-lg">
+              <div className="modal-header bg-danger text-white py-3">
+                <h5 className="modal-title fw-bold">
+                  <i className="bi bi-person-plus-fill me-2"></i>
+                  Registrar Nuevo Alumno
+                </h5>
+                <button
+                  type="button"
+                  className="btn-close btn-close-white"
+                  onClick={() => setShowCreateModal(false)}
+                ></button>
+              </div>
+              <form onSubmit={handleCreateSubmit}>
+                <div className="modal-body p-4">
+                  <div className="alert alert-info border-0 shadow-sm d-flex align-items-center mb-4">
+                    <i className="bi bi-info-circle-fill fs-4 me-3"></i>
+                    <div>
+                      Complete los datos para generar el nuevo acceso del
+                      alumno. El sistema le asignará el rol de{" "}
+                      <strong>Alumno</strong> automáticamente.
+                    </div>
+                  </div>
+
+                  <div className="row g-3">
+                    <div className="col-md-6">
+                      <label className="form-label fw-bold text-secondary small text-uppercase">
+                        Nombre
+                      </label>
+                      <input
+                        type="text"
+                        className="form-control form-control-lg border-2"
+                        name="nombre"
+                        placeholder="Ej: Juan"
+                        value={createFormData.nombre}
+                        onChange={handleCreateInputChange}
+                        required
+                      />
+                    </div>
+                    <div className="col-md-6">
+                      <label className="form-label fw-bold text-secondary small text-uppercase">
+                        Apellido
+                      </label>
+                      <input
+                        type="text"
+                        className="form-control form-control-lg border-2"
+                        name="apellido"
+                        placeholder="Ej: Pérez"
+                        value={createFormData.apellido}
+                        onChange={handleCreateInputChange}
+                        required
+                      />
+                    </div>
+                    <div className="col-md-6">
+                      <label className="form-label fw-bold text-secondary small text-uppercase">
+                        Usuario
+                      </label>
+                      <input
+                        type="text"
+                        className={`form-control form-control-lg border-2 ${
+                          availability.username === false
+                            ? "is-invalid"
+                            : availability.username === true
+                            ? "is-valid"
+                            : ""
+                        }`}
+                        name="username"
+                        placeholder="usuario.alumno"
+                        value={createFormData.username}
+                        onChange={handleCreateInputChange}
+                        required
+                      />
+                      {renderValidation("username")}
+                    </div>
+                    <div className="col-md-6">
+                      <label className="form-label fw-bold text-secondary small text-uppercase">
+                        Email
+                      </label>
+                      <input
+                        type="email"
+                        className={`form-control form-control-lg border-2 ${
+                          availability.email === false
+                            ? "is-invalid"
+                            : availability.email === true
+                            ? "is-valid"
+                            : ""
+                        }`}
+                        name="email"
+                        placeholder="alumno@ejemplo.com"
+                        value={createFormData.email}
+                        onChange={handleCreateInputChange}
+                        required
+                      />
+                      {renderValidation("email")}
+                    </div>
+                    <div className="col-md-6">
+                      <label className="form-label fw-bold text-secondary small text-uppercase">
+                        DNI (Sin puntos)
+                      </label>
+                      <input
+                        type="text"
+                        className={`form-control form-control-lg border-2 ${
+                          availability.dni === false
+                            ? "is-invalid"
+                            : availability.dni === true
+                            ? "is-valid"
+                            : ""
+                        }`}
+                        name="dni"
+                        placeholder="12345678"
+                        value={createFormData.dni}
+                        onChange={handleCreateInputChange}
+                        required
+                      />
+                      {renderValidation("dni")}
+                    </div>
+                    <div className="col-md-6">
+                      <label className="form-label fw-bold text-secondary small text-uppercase">
+                        Teléfono
+                      </label>
+                      <input
+                        type="text"
+                        className="form-control form-control-lg border-2"
+                        name="telefono"
+                        placeholder="Ej: 1122334455"
+                        value={createFormData.telefono}
+                        onChange={handleCreateInputChange}
+                      />
+                    </div>
+                    <div className="col-md-12">
+                      <label className="form-label fw-bold text-danger small text-uppercase">
+                        Contraseña Inicial
+                      </label>
+                      <div className="input-group input-group-lg">
+                        <span className="input-group-text bg-danger text-white border-danger">
+                          <i className="bi bi-key-fill"></i>
+                        </span>
+                        <input
+                          type="text"
+                          className="form-control border-2 border-start-0"
+                          name="password"
+                          placeholder="Mínimo 6 caracteres"
+                          value={createFormData.password}
+                          onChange={handleCreateInputChange}
+                          required
+                          minLength="6"
+                        />
+                      </div>
+                      <small className="text-muted">
+                        Informe esta contraseña al alumno para su primer
+                        ingreso.
+                      </small>
+                    </div>
+                  </div>
+                </div>
+                <div className="modal-footer bg-light border-0 p-3">
+                  <button
+                    type="button"
+                    className="btn btn-lg btn-outline-secondary px-4 me-2"
+                    onClick={() => setShowCreateModal(false)}
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="submit"
+                    className="btn btn-lg btn-danger px-5 shadow-sm"
+                    disabled={
+                      creating ||
+                      availability.username === false ||
+                      availability.email === false ||
+                      availability.dni === false ||
+                      validating.username ||
+                      validating.email ||
+                      validating.dni
+                    }
+                  >
+                    {creating ? (
+                      <>
+                        <span className="spinner-border spinner-border-sm me-2"></span>
+                        Creando...
+                      </>
+                    ) : (
+                      <>
+                        <i className="bi bi-check-circle me-2"></i>
+                        Crear Alumno
+                      </>
+                    )}
                   </button>
                 </div>
               </form>

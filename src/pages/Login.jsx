@@ -15,7 +15,7 @@ const validations = {
 };
 
 const Login = () => {
-  const { login, register } = useAuth();
+  const { login, register, checkAvailability } = useAuth();
   const navigate = useNavigate();
 
   // Estados del formulario
@@ -35,6 +35,18 @@ const Login = () => {
   const [validFields, setValidFields] = useState({});
   const [loading, setLoading] = useState(false);
   const [submitMessage, setSubmitMessage] = useState({ type: "", text: "" });
+
+  // Estado para validación en tiempo real (duplicados)
+  const [availability, setAvailability] = useState({
+    username: null,
+    email: null,
+    dni: null,
+  });
+  const [validating, setValidating] = useState({
+    username: false,
+    email: false,
+    dni: false,
+  });
 
   // Referencias para animaciones
   const formRef = useRef(null);
@@ -132,10 +144,51 @@ const Login = () => {
     return Object.keys(newErrors).length === 0;
   }, [formData, touched, isRegister, confirmPassword]);
 
-  // Validaciones en tiempo real
+  // Validaciones en tiempo real de formato
   useEffect(() => {
     validateForm();
   }, [validateForm]);
+
+  // Validación de disponibilidad (duplicados) con debounce
+  useEffect(() => {
+    if (!isRegister) return;
+
+    const fieldsToCheck = ["username", "email", "dni"];
+    const timeouts = {};
+
+    fieldsToCheck.forEach((field) => {
+      const value = formData[field];
+      // Solo validar si tiene el formato correcto según la Regex y longitud mínima
+      const isValidFormat =
+        field === "dni"
+          ? validations.dni.test(value)
+          : field === "email"
+          ? validations.email.test(value)
+          : validations.username.test(value);
+
+      if (value && isValidFormat) {
+        setValidating((prev) => ({ ...prev, [field]: true }));
+        timeouts[field] = setTimeout(async () => {
+          const isAvailable = await checkAvailability(field, value);
+          setAvailability((prev) => ({ ...prev, [field]: isAvailable }));
+          setValidating((prev) => ({ ...prev, [field]: false }));
+        }, 600);
+      } else {
+        setAvailability((prev) => ({ ...prev, [field]: null }));
+        setValidating((prev) => ({ ...prev, [field]: false }));
+      }
+    });
+
+    return () => {
+      Object.values(timeouts).forEach((t) => clearTimeout(t));
+    };
+  }, [
+    formData.username,
+    formData.email,
+    formData.dni,
+    isRegister,
+    checkAvailability,
+  ]);
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -166,6 +219,11 @@ const Login = () => {
       ...prev,
       [name]: cleanedValue,
     }));
+
+    // Resetear disponibilidad al cambiar el valor
+    if (availability[name] !== undefined) {
+      setAvailability((prev) => ({ ...prev, [name]: null }));
+    }
 
     // Marcar como tocado cuando se empieza a escribir
     if (!touched[name]) {
@@ -329,9 +387,9 @@ const Login = () => {
     let className = "form-control ";
 
     if (touched[field]) {
-      if (errors[field]) {
+      if (errors[field] || availability[field] === false) {
         className += "is-invalid ";
-      } else if (validFields[field]) {
+      } else if (validFields[field] && availability[field] !== false) {
         className += "is-valid ";
       }
     }
@@ -339,6 +397,42 @@ const Login = () => {
     return className.trim();
   };
 
+  // Función para renderizar feedback de disponibilidad
+  const renderAvailabilityFeedback = (field) => {
+    if (!isRegister) return null;
+
+    if (validating[field]) {
+      return (
+        <small className="text-info d-block mt-1">
+          <span
+            className="spinner-border spinner-border-sm me-1"
+            role="status"
+            aria-hidden="true"
+          ></span>
+          Verificando...
+        </small>
+      );
+    }
+
+    if (availability[field] === true) {
+      return (
+        <small className="text-success d-block mt-1">
+          <i className="bi bi-check-circle-fill me-1"></i> Disponible
+        </small>
+      );
+    }
+
+    if (availability[field] === false) {
+      return (
+        <small className="text-danger d-block mt-1">
+          <i className="bi bi-exclamation-triangle-fill me-1"></i> Ya registrado
+          en la base
+        </small>
+      );
+    }
+
+    return null;
+  };
   // Función para renderizar mensaje de ayuda
   const renderHelpText = (field) => {
     if (!touched[field] || validFields[field]) return null;
@@ -456,7 +550,10 @@ const Login = () => {
             {touched.username && errors.username ? (
               <div className="invalid-feedback d-block">{errors.username}</div>
             ) : (
-              renderHelpText("username")
+              <>
+                {renderAvailabilityFeedback("username")}
+                {renderHelpText("username")}
+              </>
             )}
           </div>
 
@@ -612,7 +709,10 @@ const Login = () => {
                 {touched.dni && errors.dni ? (
                   <div className="invalid-feedback d-block">{errors.dni}</div>
                 ) : (
-                  renderHelpText("dni")
+                  <>
+                    {renderAvailabilityFeedback("dni")}
+                    {renderHelpText("dni")}
+                  </>
                 )}
               </div>
 
@@ -639,7 +739,10 @@ const Login = () => {
                 {touched.email && errors.email ? (
                   <div className="invalid-feedback d-block">{errors.email}</div>
                 ) : (
-                  renderHelpText("email")
+                  <>
+                    {renderAvailabilityFeedback("email")}
+                    {renderHelpText("email")}
+                  </>
                 )}
               </div>
 
@@ -732,7 +835,16 @@ const Login = () => {
           <button
             type="submit"
             className="btn btn-danger w-100 py-2 mb-3 fw-semibold"
-            disabled={loading}
+            disabled={
+              loading ||
+              (isRegister &&
+                (availability.username === false ||
+                  availability.email === false ||
+                  availability.dni === false ||
+                  validating.username ||
+                  validating.email ||
+                  validating.dni))
+            }
           >
             {loading ? (
               <>

@@ -25,35 +25,34 @@ const Alumnos = ({ datosAlumnos = [], onEdit, onDelete }) => {
       <div className="row">
         {datosAlumnos.map((alumno, idx) => (
           <div className="col-md-6 col-lg-4 mb-4" key={`${alumno.dni}-${idx}`}>
-            <div className="card h-100 shadow border-start border-4 border-danger position-relative">
-              {/* Botones de acción flotantes/esquina */}
-              <div
-                className="position-absolute top-0 end-0 p-2 d-flex gap-1"
-                style={{ zIndex: 10 }}
-              >
-                <button
-                  className="btn btn-sm btn-light shadow-sm border"
-                  onClick={() => onEdit(alumno)}
-                  title="Editar alumno"
-                >
-                  <i className="bi bi-pencil-fill text-primary"></i>
-                </button>
-                <button
-                  className="btn btn-sm btn-light shadow-sm border"
-                  onClick={() => onDelete(alumno)}
-                  title="Eliminar alumno"
-                >
-                  <i className="bi bi-trash-fill text-danger"></i>
-                </button>
-              </div>
-
-              <div className="card-header bg-dark text-white">
+            <div className="card h-100 shadow border-start border-4 border-danger overflow-hidden">
+              <div className="card-header bg-danger text-white py-3">
                 <div className="d-flex justify-content-between align-items-center">
-                  <h6 className="mb-0 text-truncate me-5">
-                    <i className="bi bi-person-badge me-2"></i>
-                    {alumno.nombre} {alumno.apellido}
-                  </h6>
-                  <span className="badge bg-light text-dark">#{idx + 1}</span>
+                  <div className="d-flex align-items-center gap-2 overflow-hidden">
+                    <span className="badge bg-white text-danger fw-bold">
+                      #{idx + 1}
+                    </span>
+                    <h6 className="mb-0 text-truncate fw-bold">
+                      <i className="bi bi-person-badge me-2"></i>
+                      {alumno.nombre} {alumno.apellido}
+                    </h6>
+                  </div>
+                  <div className="d-flex gap-1">
+                    <button
+                      className="btn btn-sm btn-light shadow-sm border-0"
+                      onClick={() => onEdit(alumno)}
+                      title="Editar alumno"
+                    >
+                      <i className="bi bi-pencil-fill text-primary"></i>
+                    </button>
+                    <button
+                      className="btn btn-sm btn-light shadow-sm border-0"
+                      onClick={() => onDelete(alumno)}
+                      title="Eliminar alumno"
+                    >
+                      <i className="bi bi-trash-fill text-danger"></i>
+                    </button>
+                  </div>
                 </div>
               </div>
 
@@ -61,20 +60,22 @@ const Alumnos = ({ datosAlumnos = [], onEdit, onDelete }) => {
                 <div className="mb-3">
                   <div className="row g-2">
                     <div className="col-6">
-                      <small className="text-muted">DNI</small>
+                      <small className="text-secondary fw-semibold">DNI</small>
                       <p className="mb-0 fw-bold">{alumno.dni}</p>
                     </div>
                     <div className="col-6">
-                      <small className="text-muted">Estado</small>
+                      <small className="text-secondary fw-semibold">
+                        Estado
+                      </small>
                       <p className="mb-0">
                         <span
                           className={`badge ${
-                            alumno.estado === "activo"
+                            alumno.activo !== false
                               ? "bg-success"
-                              : "bg-warning"
+                              : "bg-secondary"
                           }`}
                         >
-                          {alumno.estado || "activo"}
+                          {alumno.activo !== false ? "Activo" : "Inactivo"}
                         </span>
                       </p>
                     </div>
@@ -82,7 +83,7 @@ const Alumnos = ({ datosAlumnos = [], onEdit, onDelete }) => {
                 </div>
 
                 <div className="mb-3">
-                  <small className="text-muted">Email</small>
+                  <small className="text-secondary fw-semibold">Email</small>
                   <p className="mb-1 text-truncate">
                     <i className="bi bi-envelope me-1 text-primary"></i>
                     {alumno.email}
@@ -90,7 +91,7 @@ const Alumnos = ({ datosAlumnos = [], onEdit, onDelete }) => {
                 </div>
 
                 <div className="mb-3">
-                  <small className="text-muted">Teléfono</small>
+                  <small className="text-secondary fw-semibold">Teléfono</small>
                   <p className="mb-1">
                     <i className="bi bi-telephone me-1 text-success"></i>
                     {alumno.telefono || "No especificado"}
@@ -164,10 +165,13 @@ const Alumnos = ({ datosAlumnos = [], onEdit, onDelete }) => {
                 </div>
               </div>
 
-              <div className="card-footer bg-light">
-                <small className="text-muted">
+              <div className="card-footer bg-light border-0">
+                <small className="text-secondary">
                   <i className="bi bi-calendar-event me-1"></i>
-                  Registrado: {alumno.fechaRegistro || "No disponible"}
+                  Registrado:{" "}
+                  {alumno.created_at
+                    ? new Date(alumno.created_at).toLocaleDateString()
+                    : "No disponible"}
                 </small>
               </div>
             </div>
@@ -185,7 +189,7 @@ const Alumnos = ({ datosAlumnos = [], onEdit, onDelete }) => {
             </div>
             <div className="col-md-4">
               <h3 className="text-success">
-                {datosAlumnos.filter((a) => a.estado === "activo").length}
+                {datosAlumnos.filter((a) => a.activo !== false).length}
               </h3>
               <p className="text-muted mb-0">Alumnos Activos</p>
             </div>

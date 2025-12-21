@@ -53,21 +53,25 @@ export const AuthProvider = ({ children }) => {
   // Función de registro con Supabase
   const register = useCallback(async (userData) => {
     try {
-      // Verificar si el usuario ya existe
-      const { data: existingUser, error: checkError } = await supabase
+      // Verificar si el usuario ya existe (DNI, Email o Username)
+      const { data: duplicates, error: checkError } = await supabase
         .from("usuarios")
         .select("username, email, dni")
         .or(
           `username.eq.${userData.username},email.eq.${userData.email},dni.eq.${userData.dni}`
-        )
-        .single();
+        );
 
-      if (existingUser) {
+      if (checkError) throw checkError;
+
+      if (duplicates && duplicates.length > 0) {
+        const existing = duplicates[0];
         let message = "El usuario ya está registrado";
-        if (existingUser.email === userData.email)
-          message = "El email ya está registrado";
-        if (existingUser.dni === userData.dni)
-          message = "El DNI ya está registrado";
+        if (existing.email === userData.email)
+          message = `El email "${userData.email}" ya está registrado`;
+        if (existing.dni === userData.dni)
+          message = `El DNI "${userData.dni}" ya está registrado`;
+        if (existing.username === userData.username)
+          message = `El nombre de usuario "${userData.username}" ya está registrado`;
         return { success: false, message };
       }
 
@@ -75,8 +79,8 @@ export const AuthProvider = ({ children }) => {
       const newUser = {
         ...userData,
         role: "alumno",
-        fechaRegistro: new Date().toISOString(),
         activo: true,
+        // No enviamos fechaRegistro ni created_at, dejamos que Supabase lo maneje por defecto
       };
 
       const { data, error } = await supabase
@@ -186,6 +190,24 @@ export const AuthProvider = ({ children }) => {
     }
   }, []);
 
+  // Función para verificar disponibilidad de campo (para validación en tiempo real)
+  const checkAvailability = useCallback(async (field, value) => {
+    if (!value) return true;
+    try {
+      const { data, error } = await supabase
+        .from("usuarios")
+        .select(field)
+        .eq(field, value)
+        .limit(1);
+
+      if (error) throw error;
+      return data.length === 0; // true si está disponible
+    } catch (error) {
+      console.error(`Error checking ${field} availability:`, error.message);
+      return true; // En caso de error, asumir disponible para no bloquear
+    }
+  }, []);
+
   // Logout
   const logout = useCallback(() => {
     setUser(null);
@@ -210,6 +232,7 @@ export const AuthProvider = ({ children }) => {
         fetchUsers,
         updateUser,
         deleteUser,
+        checkAvailability,
       }}
     >
       {children}
