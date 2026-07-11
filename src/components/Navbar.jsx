@@ -20,7 +20,12 @@ const Navbar = () => {
     >
       <div className="container">
         <a className="navbar-brand" href="/#inicio">
-          <img src="/img/lOGO.png" alt="Logo" width="50" className="me-2" />
+          <img
+            src="https://dftbmejancszlkrnoulo.supabase.co/storage/v1/object/public/actividades/general/lOGO.png"
+            alt="Logo"
+            width="50"
+            className="me-2"
+          />
         </a>
 
         <button
@@ -69,9 +74,9 @@ const Navbar = () => {
             {user ? (
               <>
                 <li className="nav-item">
-                  <Link 
-                    className="nav-link text-warning" 
-                    to={user.role === 'admin' ? "/admin" : "/alumno"}
+                  <Link
+                    className="nav-link text-warning"
+                    to={user.role === "admin" ? "/admin" : "/alumno"}
                   >
                     {user.username || "Panel"}
                   </Link>
